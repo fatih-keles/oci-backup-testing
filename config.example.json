@@ -1,0 +1,66 @@
+{
+  "source_compartment_id": "ocid1.compartment.oc1..replace-me-compartment-a-volume-groups",
+  "target_compartment_id": "ocid1.compartment.oc1..replace-me-compartment-b-isolated-testing",
+  "state_file": ".oci-restore-state.json",
+  "queue_file": ".oci-report-queue.json",
+  "state_retention": {
+    "max_executions": 500,
+    "max_age_days": 30,
+    "prune_only_cleaned": true
+  },
+  "auth": {
+    "mode": "config_file",
+    "config_file": "~/.oci/config",
+    "profile": "DEFAULT"
+  },
+  "tag": {
+    "kind": "freeform",
+    "key": "OCI-Backup-Testing",
+    "value": null
+  },
+  "network": {
+    "vcn_compartment_id": null,
+    "subnet_compartment_id": null,
+    "vcn_id": null,
+    "subnet_id": null,
+    "subnet_id_by_availability_domain": {},
+    "assign_public_ip": false,
+    "nsg_ids": []
+  },
+  "restore": {
+    "display_name_prefix": "oci-restore-test",
+    "wait_seconds": 7200,
+    "wait_interval_seconds": 30,
+    "freeform_tags": {
+      "CreatedBy": "oci-backup-testing",
+      "Purpose": "restore-validation"
+    },
+    "defined_tags": {}
+  },
+  "compute": {
+    "shape": "VM.Standard.E5.Flex",
+    "ocpus": 1.0,
+    "memory_in_gbs": 8.0,
+    "display_name_prefix": "oci-restore-test",
+    "hostname_prefix": "ocitest",
+    "metadata": {},
+    "ssh_public_key_path": null,
+    "attachment_type": "paravirtualized",
+    "pv_encryption_in_transit": null,
+    "preserve_boot_volume_on_terminate": true
+  },
+  "report": {
+    "enabled": true,
+    "bucket_name": "replace-me-precreated-report-bucket",
+    "namespace": null,
+    "object_name_prefix": "oci-backup-testing/reports",
+    "title": "Backup Restore Validation Report"
+  },
+  "cleanup": {
+    "terminate_instances": true,
+    "delete_restored_volume_group": true,
+    "delete_restored_volumes": true,
+    "wait_seconds": 3600,
+    "wait_interval_seconds": 20
+  }
+}

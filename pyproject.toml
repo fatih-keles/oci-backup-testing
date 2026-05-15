@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oci-backup-testing"
+version = "0.1.0"
+description = "Validate OCI volume group backups by restoring them and launching isolated test instances."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "oci>=2.173.1",
+]
+
+[project.scripts]
+oci-backup-testing = "oci_backup_testing.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
