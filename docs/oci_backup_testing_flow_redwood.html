@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OCI backup restore validation - Redwood themed flow</title>
+<style>
+  :root {
+    --canvas: #f6f1e9;
+    --sand: #fffaf2;
+    --paper: #fffdf8;
+    --paper-2: #fbf6ed;
+    --ink: #171512;
+    --ink-2: #312d2a;
+    --muted: #6f625a;
+    --soft: #8d8177;
+    --line: #b8aea3;
+    --line-2: #d9d0c6;
+    --redwood: #c74634;
+    --redwood-dark: #6f2b23;
+    --terracotta: #a45229;
+    --ochre: #d4a441;
+    --sage: #6f7f66;
+    --teal: #396f78;
+    --shadow: 0 22px 52px rgba(61, 43, 31, .13);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--canvas); }
+  body {
+    margin: 0;
+    font-family: "Oracle Sans", "Noto Sans", "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 10% 8%, rgba(199,70,52,.12), transparent 30%),
+      radial-gradient(circle at 88% 5%, rgba(212,164,65,.17), transparent 24%),
+      linear-gradient(180deg, #f8f3eb 0%, var(--canvas) 50%, #efe8dd 100%);
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 36px;
+    background:
+      linear-gradient(180deg, rgba(199,70,52,.90), rgba(111,43,35,.94) 35%, rgba(57,111,120,.48) 72%, rgba(212,164,65,.34)),
+      repeating-linear-gradient(72deg, transparent 0 15px, rgba(23,21,18,.32) 16px 18px, transparent 19px 31px);
+    box-shadow: 10px 0 28px rgba(104,72,48,.10);
+    pointer-events: none;
+  }
+  main { max-width: 1480px; margin: 0 auto; padding: 25px 28px 28px 54px; }
+  header { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: start; margin-bottom: 18px; }
+  .brandline { color: var(--redwood); font-weight: 800; letter-spacing: .09em; font-size: 13px; margin-bottom: 10px; }
+  h1 {
+    margin: 0;
+    max-width: 930px;
+    font-family: "Oracle Serif", "Noto Serif", Georgia, serif;
+    font-size: clamp(34px, 4vw, 54px);
+    line-height: 1.0;
+    letter-spacing: -.045em;
+    color: var(--ink);
+  }
+  .subtitle { margin: 12px 0 0; color: var(--muted); font-size: 16.3px; max-width: 1060px; line-height: 1.42; }
+  .artifact-tag {
+    justify-self: end;
+    border: 1px solid var(--line-2);
+    color: var(--redwood-dark);
+    background: rgba(255,253,248,.76);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 10px 28px rgba(73, 48, 32, .08);
+  }
+  .stage {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #d7cec2;
+    background: linear-gradient(180deg, rgba(255,253,248,.94), rgba(251,246,237,.93));
+    border-radius: 28px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .stage::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 8px;
+    background: linear-gradient(90deg, var(--redwood) 0 30%, var(--terracotta) 30% 54%, var(--ochre) 54% 72%, var(--sage) 72% 86%, var(--teal) 86% 100%);
+  }
+  .flow-wrap {
+    position: relative;
+    background:
+      radial-gradient(circle at 7% 12%, rgba(199,70,52,.08), transparent 21%),
+      radial-gradient(circle at 95% 82%, rgba(57,111,120,.08), transparent 24%),
+      linear-gradient(180deg, #fffdf8, #f7efe4);
+    border: 1px solid var(--line-2);
+    border-radius: 22px;
+    overflow: hidden;
+  }
+  .flow-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 16px 18px auto auto;
+    width: 220px;
+    height: 86px;
+    opacity: .17;
+    background:
+      repeating-linear-gradient(135deg, transparent 0 18px, var(--redwood) 19px 21px, transparent 22px 40px),
+      radial-gradient(circle, var(--terracotta) 0 2px, transparent 3px);
+    pointer-events: none;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .lane-label { fill: var(--muted); font-size: 15px; font-weight: 750; letter-spacing: .02em; }
+  .lane-box { fill: rgba(255,255,255,.52); stroke: rgba(181,170,158,.72); stroke-width: 1.5; }
+  .lane-accent-a { fill: rgba(199,70,52,.82); }
+  .lane-accent-b { fill: rgba(57,111,120,.80); }
+  .edge { stroke: var(--line); stroke-width: 4; fill: none; stroke-linecap: round; opacity: .78; transition: all .45s ease; }
+  .edge.done { stroke: var(--sage); opacity: .86; }
+  .edge.active { stroke: var(--redwood); opacity: 1; stroke-width: 6; filter: drop-shadow(0 0 7px rgba(199,70,52,.36)); stroke-dasharray: 10 10; animation: dash 1s linear infinite; }
+  @keyframes dash { to { stroke-dashoffset: -40; } }
+  .node rect { fill: rgba(255,253,248,.88); stroke: rgba(162,151,139,.88); stroke-width: 1.7; transition: all .45s ease; filter: drop-shadow(0 8px 13px rgba(53,39,26,.08)); }
+  .node text { pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+  .node-title { fill: var(--ink-2); font-size: 17px; font-weight: 800; }
+  .node-subtitle { fill: var(--muted); font-size: 12px; font-weight: 700; }
+  .node-badge { fill: rgba(199,70,52,.12); stroke: rgba(199,70,52,.28); stroke-width: 1; transition: all .45s ease; }
+  .node-number { fill: var(--redwood-dark); font-size: 10px; font-weight: 900; }
+  .node.active rect { fill: #fff4ee; stroke: var(--redwood); stroke-width: 4; filter: drop-shadow(0 0 16px rgba(199,70,52,.34)); }
+  .node.active .node-badge { fill: var(--redwood); stroke: var(--redwood); }
+  .node.active .node-number { fill: #fffaf2; }
+  .node.done rect { fill: rgba(241,248,238,.78); stroke: rgba(111,127,102,.82); }
+  .node.done .node-badge { fill: rgba(111,127,102,.90); stroke: rgba(111,127,102,.95); }
+  .node.done .node-number { fill: white; }
+  #token { fill: var(--redwood); stroke: #fff8ef; stroke-width: 4; filter: drop-shadow(0 0 11px rgba(199,70,52,.70)); transition: cx .65s ease, cy .65s ease; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 2px 0; }
+  .buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    appearance: none;
+    border: 1px solid var(--line-2);
+    color: var(--ink-2);
+    background: rgba(255,253,248,.82);
+    padding: 10px 15px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-weight: 800;
+    box-shadow: 0 6px 16px rgba(73,48,32,.07);
+  }
+  button:hover { background: white; border-color: #c9bdb0; }
+  .progress { flex: 1 1 360px; height: 10px; background: rgba(156,143,130,.25); border-radius: 999px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 10%; background: linear-gradient(90deg, var(--redwood), var(--terracotta), var(--ochre)); border-radius: 999px; transition: width .45s ease; }
+  .details { display: grid; grid-template-columns: 1.16fr .84fr; gap: 16px; margin-top: 16px; }
+  .card { border: 1px solid var(--line-2); background: rgba(255,253,248,.86); border-radius: 20px; padding: 17px 18px; box-shadow: 0 10px 28px rgba(73,48,32,.07); }
+  .eyebrow { color: var(--redwood); font-size: 12px; font-weight: 900; letter-spacing: .10em; text-transform: uppercase; }
+  .headline { margin: 7px 0 8px; font-family: "Oracle Serif", "Noto Serif", Georgia, serif; font-size: 27px; line-height: 1.07; letter-spacing: -.025em; color: var(--ink); }
+  .bodytext { color: var(--muted); line-height: 1.48; font-size: 15px; }
+  .kv { display: grid; gap: 10px; }
+  .kv div { border-left: 4px solid rgba(199,70,52,.18); padding-left: 12px; }
+  .kv strong { display: block; font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
+  code { display: inline-block; background: rgba(49,45,42,.055); border: 1px solid rgba(184,174,163,.62); border-radius: 10px; padding: 7px 9px; color: var(--redwood-dark); font-size: 13px; line-height: 1.35; }
+  .notes { margin-top: 14px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .note { padding: 13px 14px; border-radius: 16px; background: rgba(255,253,248,.72); border: 1px solid var(--line-2); color: var(--muted); font-size: 13.4px; line-height: 1.38; }
+  .note strong { display: block; color: var(--ink); margin-bottom: 5px; }
+  footer { margin-top: 13px; color: var(--soft); font-size: 12.3px; line-height: 1.35; }
+  a { color: var(--redwood-dark); }
+  @media (max-width: 900px) {
+    body::before { width: 14px; }
+    main { padding: 18px 14px 26px 24px; }
+    header { grid-template-columns: 1fr; }
+    .artifact-tag { justify-self: start; }
+    .details, .notes { grid-template-columns: 1fr; }
+    .headline { font-size: 23px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .edge.active { animation: none; }
+    * { transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <div class="brandline">ORACLE CLOUD INFRASTRUCTURE</div>
+      <h1>OCI backup restore validation</h1>
+      <p class="subtitle">A Redwood themed visual runbook for automated OCI volume group backup testing: discover tagged sources, restore the latest backups into an isolated target compartment, launch a validation VM, collect evidence, and clean up.</p>
+    </div>
+    <div class="artifact-tag">Redwood themed flow</div>
+  </header>
+
+  <section class="stage" aria-label="Animated OCI backup testing flow">
+    <div class="flow-wrap">
+      <svg viewBox="0 0 1320 520" role="img" aria-labelledby="svg-title svg-desc">
+        <title id="svg-title">Animated flow for OCI backup restore validation</title>
+        <desc id="svg-desc">Nodes animate through config, batch initialization, discovery, backup selection, restore, VM creation, disk attachment, validation, reporting, and cleanup.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2,2 L10,6 L2,10 Z" fill="#b8aea3"></path></marker>
+          <marker id="arrowActive" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2,2 L10,6 L2,10 Z" fill="#c74634"></path></marker>
+          <marker id="arrowDone" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth"><path d="M2,2 L10,6 L2,10 Z" fill="#6f7f66"></path></marker>
+        </defs>
+        <rect class="lane-box" x="36" y="66" width="1248" height="160" rx="24"></rect>
+        <rect class="lane-box" x="36" y="271" width="1248" height="160" rx="24"></rect>
+        <rect class="lane-accent-a" x="36" y="66" width="7" height="160" rx="4"></rect>
+        <rect class="lane-accent-b" x="36" y="271" width="7" height="160" rx="4"></rect>
+        <text class="lane-label" x="62" y="90">Local and Compartment A: config, queue, discovery, latest backup selection</text>
+        <text class="lane-label" x="62" y="296">Compartment B: isolated restore target, test VM, evidence, cleanup</text>
+        <path class="edge" id="edge-0" d="M 190 145 L 258 145" marker-end="url(#arrow)"></path><path class="edge" id="edge-1" d="M 402 145 L 470 145" marker-end="url(#arrow)"></path><path class="edge" id="edge-2" d="M 614 145 L 682 145" marker-end="url(#arrow)"></path><path class="edge" id="edge-3" d="M 826 145 L 894 145" marker-end="url(#arrow)"></path><path class="edge" id="edge-4" d="M 1038 145 L 1108 145" marker-end="url(#arrow)"></path><path class="edge" id="edge-5" d="M 1180 190 L 1180 305" marker-end="url(#arrow)"></path><path class="edge" id="edge-6" d="M 1108 350 L 1038 350" marker-end="url(#arrow)"></path><path class="edge" id="edge-7" d="M 894 350 L 826 350" marker-end="url(#arrow)"></path><path class="edge" id="edge-8" d="M 682 350 L 614 350" marker-end="url(#arrow)"></path>
+        
+      <g class="node" data-idx="0" id="node-0">
+        <rect x="46" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="65" cy="119" r="12"></circle>
+        <text x="65" y="119" class="node-number">1</text>
+        <text x="118" y="138" class="node-title">Config</text>
+        <text x="118" y="166" class="node-subtitle">Local</text>
+      </g>
+      <g class="node" data-idx="1" id="node-1">
+        <rect x="258" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="277" cy="119" r="12"></circle>
+        <text x="277" y="119" class="node-number">2</text>
+        <text x="330" y="138" class="node-title">Start batch</text>
+        <text x="330" y="166" class="node-subtitle">Queue</text>
+      </g>
+      <g class="node" data-idx="2" id="node-2">
+        <rect x="470" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="489" cy="119" r="12"></circle>
+        <text x="489" y="119" class="node-number">3</text>
+        <text x="542" y="138" class="node-title">Discover</text>
+        <text x="542" y="166" class="node-subtitle">Compartment A</text>
+      </g>
+      <g class="node" data-idx="3" id="node-3">
+        <rect x="682" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="701" cy="119" r="12"></circle>
+        <text x="701" y="119" class="node-number">4</text>
+        <text x="754" y="138" class="node-title">Select backup</text>
+        <text x="754" y="166" class="node-subtitle">Latest available</text>
+      </g>
+      <g class="node" data-idx="4" id="node-4">
+        <rect x="894" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="913" cy="119" r="12"></circle>
+        <text x="913" y="119" class="node-number">5</text>
+        <text x="966" y="138" class="node-title">Restore</text>
+        <text x="966" y="166" class="node-subtitle">Compartment B</text>
+      </g>
+      <g class="node" data-idx="5" id="node-5">
+        <rect x="1108" y="100" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="1127" cy="119" r="12"></circle>
+        <text x="1127" y="119" class="node-number">6</text>
+        <text x="1180" y="138" class="node-title">Create VM</text>
+        <text x="1180" y="166" class="node-subtitle">Isolated subnet</text>
+      </g>
+      <g class="node" data-idx="6" id="node-6">
+        <rect x="1108" y="305" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="1127" cy="324" r="12"></circle>
+        <text x="1127" y="324" class="node-number">7</text>
+        <text x="1180" y="343" class="node-title">Attach disks</text>
+        <text x="1180" y="371" class="node-subtitle">Restored volumes</text>
+      </g>
+      <g class="node" data-idx="7" id="node-7">
+        <rect x="894" y="305" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="913" cy="324" r="12"></circle>
+        <text x="913" y="324" class="node-number">8</text>
+        <text x="966" y="343" class="node-title">Validate</text>
+        <text x="966" y="371" class="node-subtitle">Control plane</text>
+      </g>
+      <g class="node" data-idx="8" id="node-8">
+        <rect x="682" y="305" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="701" cy="324" r="12"></circle>
+        <text x="701" y="324" class="node-number">9</text>
+        <text x="754" y="343" class="node-title">Report</text>
+        <text x="754" y="371" class="node-subtitle">Evidence</text>
+      </g>
+      <g class="node" data-idx="9" id="node-9">
+        <rect x="470" y="305" width="144" height="90" rx="18"></rect>
+        <circle class="node-badge" cx="489" cy="324" r="12"></circle>
+        <text x="489" y="324" class="node-number">10</text>
+        <text x="542" y="343" class="node-title">Clean up</text>
+        <text x="542" y="371" class="node-subtitle">State file</text>
+      </g>
+        <circle id="token" cx="180" cy="110" r="10"></circle>
+      </svg>
+    </div>
+
+    <div class="controls">
+      <div class="buttons">
+        <button type="button" id="playPause">Pause</button>
+        <button type="button" id="prev">Previous</button>
+        <button type="button" id="next">Next</button>
+        <button type="button" id="reset">Reset</button>
+      </div>
+      <div class="progress" aria-label="Animation progress"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <section class="details">
+      <article class="card">
+        <div class="eyebrow" id="where">Local config</div>
+        <h2 class="headline" id="headline">1. Configure runtime</h2>
+        <p class="bodytext" id="detail">Create config.json from config.example.json.</p>
+      </article>
+      <aside class="card kv">
+        <div><strong>Command or operation</strong><code id="command">Copy-Item config.example.json config.json</code></div>
+        <div><strong>Evidence captured</strong><span id="evidence" class="bodytext"></span></div>
+        <div><strong>Guardrail</strong><span id="risk" class="bodytext"></span></div>
+      </aside>
+    </section>
+
+    <section class="notes">
+      <div class="note"><strong>Split compartment model</strong>Compartment A is used for source volume group and latest-backup discovery. Compartment B is used for restore destination, isolated networking, VM launch, evidence, and cleanup.</div>
+      <div class="note"><strong>State-driven cleanup</strong>The state file is updated after each phase. If a run fails midway, cleanup uses recorded resources to terminate instances, detach disks, and delete restored volumes.</div>
+      <div class="note"><strong>Validation boundary</strong>The built-in validation is control-plane only: restored group AVAILABLE, instance RUNNING, and block volume attachments ATTACHED.</div>
+    </section>
+  </section>
+
+  <footer>Source interpreted from the public GitHub README for fatih-keles/oci-backup-testing. This artifact is a visual explanation only; it does not execute OCI API calls.</footer>
+</main>
+<script>
+const steps = [{"title": "1. Configure runtime", "short": "Config", "where": "Local config", "detail": "Create config.json from config.example.json. Set source and target compartments, auth method, tag mode, isolated network, queue file, state retention, and optional reporting bucket.", "command": "Copy-Item config.example.json config.json", "evidence": "Explicit config resolves ambiguous VCNs, subnets, auth, tag value, and report destination.", "risk": "The workflow stops when a required choice is ambiguous."}, {"title": "2. Start batch", "short": "Init batch", "where": "Local queue", "detail": "Reset or initialize the current compliance batch queue so repeated runs can roll up into one report.", "command": "oci-backup-testing --config config.json init-batch", "evidence": "Queue file becomes the current compliance batch.", "risk": "Use close-batch after the batch is complete."}, {"title": "3. Discover sources", "short": "Discover", "where": "Compartment A", "detail": "Find AVAILABLE source volume groups with the configured OCI-Backup-Testing tag.", "command": "oci-backup-testing --config config.json discover", "evidence": "Tagged source volume groups and candidate backups are listed before creation work begins.", "risk": "Only source discovery and latest-backup selection happen in Compartment A."}, {"title": "4. Select latest backups", "short": "Latest backup", "where": "Compartment A", "detail": "For each tagged volume group, select the latest AVAILABLE volume group backup.", "command": "oci-backup-testing --config config.json run --dry-run", "evidence": "Dry run validates backup selection and isolated subnet selection without creating OCI resources.", "risk": "Dry run cannot know restored boot and block volume OCIDs until a real restore is created."}, {"title": "5. Restore into target", "short": "Restore", "where": "Compartment B", "detail": "Restore the selected volume group backup using CreateVolumeGroupDetails and wait until the restored group is AVAILABLE.", "command": "oci-backup-testing --config config.json run --yes", "evidence": "Restored groups are named oci-restore-test-<source-name>-<ocid-suffix>-<timestamp>.", "risk": "Restored groups are not tagged as OCI-Backup-Testing by default, avoiding rediscovery."}, {"title": "6. Launch test VM", "short": "VM create", "where": "Compartment B isolated subnet", "detail": "Classify restored volumes, require exactly one boot volume, then launch VM.Standard.E4.Flex from that boot volume.", "command": "part of run --yes", "evidence": "The test instance is created in the isolated target network.", "risk": "The flow requires one boot volume; unexpected classification should stop the run."}, {"title": "7. Attach block volumes", "short": "Attach disks", "where": "Compartment B", "detail": "Attach restored block volumes to the test instance so disk restore evidence can be validated.", "command": "part of run --yes", "evidence": "Attachment state is tracked for each restored block volume.", "risk": "Cleanup must detach volumes before deleting resources."}, {"title": "8. Validate control plane", "short": "Validate", "where": "OCI control plane", "detail": "Confirm restored volume group is AVAILABLE, test instance is RUNNING, and each restored block volume attachment is ATTACHED.", "command": "oci-backup-testing --config config.json validate", "evidence": "Validation is control-plane evidence; guest OS and app checks are out of scope unless separately specified.", "risk": "Passing control-plane validation does not prove application health."}, {"title": "9. Report evidence", "short": "Report", "where": "Object Storage / HTML report", "detail": "Generate and upload the current batch report covering volume group evidence, VM evidence, and disk evidence.", "command": "oci-backup-testing --config config.json report", "evidence": "The report queue is updated after real runs and becomes compliance evidence.", "risk": "Configure bucket_name and namespace behavior before relying on report upload."}, {"title": "10. Cleanup and close", "short": "Cleanup", "where": "Compartment B + local state", "detail": "Use the state file to terminate test instances, detach volumes, delete restored volume groups, delete restored boot/block volumes, prune cleaned entries, and close the batch.", "command": "oci-backup-testing --config config.json cleanup --yes", "evidence": "State entries are marked cleaned or completed; prune-state removes cleaned executions according to retention rules.", "risk": "OCI deletes a volume group object without deleting individual volumes, so cleanup deletes volumes separately."}];
+const coords = [[180, 110], [392, 110], [604, 110], [816, 110], [1028, 110], [1240, 110], [1240, 315], [1028, 315], [816, 315], [604, 315]];
+const params = new URLSearchParams(window.location.search);
+const staticMode = params.get('static') === '1';
+const initialStep = Number.parseInt(params.get('step') || '0', 10);
+let current = Number.isFinite(initialStep) ? Math.min(Math.max(initialStep, 0), steps.length - 1) : 0;
+let playing = !staticMode;
+let timer;
+const intervalMs = 2600;
+
+function render() {
+  document.querySelectorAll('.node').forEach((el) => {
+    const idx = Number(el.dataset.idx);
+    el.classList.toggle('active', idx === current);
+    el.classList.toggle('done', idx < current);
+  });
+  document.querySelectorAll('.edge').forEach((el, idx) => {
+    const active = idx === current - 1 || idx === current;
+    const done = idx < current - 1;
+    el.classList.toggle('active', active);
+    el.classList.toggle('done', done);
+    el.setAttribute('marker-end', active ? 'url(#arrowActive)' : (done ? 'url(#arrowDone)' : 'url(#arrow)'));
+  });
+  const step = steps[current];
+  document.getElementById('where').textContent = step.where;
+  document.getElementById('headline').textContent = step.title;
+  document.getElementById('detail').textContent = step.detail;
+  document.getElementById('command').textContent = step.command;
+  document.getElementById('evidence').textContent = step.evidence;
+  document.getElementById('risk').textContent = step.risk;
+  document.getElementById('progressFill').style.width = (((current + 1) / steps.length) * 100) + '%';
+  const token = document.getElementById('token');
+  token.setAttribute('cx', coords[current][0]);
+  token.setAttribute('cy', coords[current][1]);
+}
+function advance(delta) {
+  current = (current + delta + steps.length) % steps.length;
+  render();
+}
+function startTimer() {
+  clearInterval(timer);
+  if (!staticMode) timer = setInterval(() => { if (playing) advance(1); }, intervalMs);
+}
+document.getElementById('playPause').addEventListener('click', () => {
+  playing = !playing;
+  document.getElementById('playPause').textContent = playing ? 'Pause' : 'Play';
+});
+document.getElementById('next').addEventListener('click', () => advance(1));
+document.getElementById('prev').addEventListener('click', () => advance(-1));
+document.getElementById('reset').addEventListener('click', () => { current = 0; render(); });
+render();
+document.getElementById('playPause').textContent = playing ? 'Pause' : 'Play';
+startTimer();
+</script>
+</body>
+</html>

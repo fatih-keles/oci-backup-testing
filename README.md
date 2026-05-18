@@ -4,6 +4,24 @@ This project uses the OCI Python SDK to validate volume group backups by restori
 
 The workflow is intentionally strict. When a choice is ambiguous, for example multiple tagged VCNs or multiple usable subnets, it stops and asks you to make that choice in `config.json`.
 
+## Workflow
+
+<p align="center">
+  <a href="https://fatih-keles.github.io/oci-backup-testing/oci_backup_testing_flow_redwood.html">
+    <img
+      src="docs/assets/oci_backup_testing_flow_redwood.gif"
+      alt="Animated OCI Backup Restore Validation workflow"
+      width="900"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://fatih-keles.github.io/oci-backup-testing/oci_backup_testing_flow_redwood.html">
+    Open the interactive workflow
+  </a>
+</p>
+
 ## Phases
 
 1. Data Discovery
