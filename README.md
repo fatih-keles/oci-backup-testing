@@ -16,11 +16,11 @@ The workflow is intentionally strict. When a choice is ambiguous, for example mu
   </a>
 </p>
 
-<p align="center">
+<!-- <p align="center">
   <a href="https://fatih-keles.github.io/oci-backup-testing/oci_backup_testing_flow_redwood.html">
     Open the interactive workflow
   </a>
-</p>
+</p> -->
 
 ## Phases
 
